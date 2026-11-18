@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   e2e-mvp:
-    runs-on: ubuntu-latest
+    # Match the Ubuntu release supported by the locked Playwright browsers.
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
 
     steps:

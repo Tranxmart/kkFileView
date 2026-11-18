@@ -10,6 +10,13 @@ This document is for coding agents and automation tools working in this reposito
 - Default local URL: `http://127.0.0.1:8012/`
 - Production demo: `https://file.kkview.cn/`
 
+## Tranxmart packaging
+
+The Tranxmart container uses `Dockerfile.txm`; its recorded upstream baseline,
+container defaults and local/CI checks are described in `docker/txm/README.md`.
+Changes there affect the TXM image only. The upstream Dockerfile, application
+sources and local development defaults remain separate.
+
 This repository is a document preview service. Most user-facing work falls into one of these areas:
 
 1. preview routing and file-type dispatch

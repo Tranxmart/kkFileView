@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+# Copyright 2026 Tranxmart, Inc. All rights reserved.
+
+FROM maven:3.9.16-eclipse-temurin-21-noble@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS build
+WORKDIR /src
+COPY pom.xml ./
+COPY server/pom.xml server/pom.xml
+COPY server/lib server/lib
+COPY server/src server/src
+COPY docker/txm/application.properties /txm.properties
+RUN --mount=type=cache,id=kkfileview-maven,target=/root/.m2,sharing=locked \
+    mvn -B -ntp -pl server -am -DskipTests -Dassembly.skipAssembly=true package \
+    && mkdir -p /out/bin /out/config \
+    && cp server/target/kkFileView-5.0.3.jar /out/bin/kkfileview.jar \
+    && cat server/src/main/config/application.properties /txm.properties > /out/config/application.properties
+
+# Java regression checks used by the TXM container workflow.
+FROM build AS java-checks
+RUN --mount=type=cache,id=kkfileview-maven,target=/root/.m2,sharing=locked \
+    mvn -B -ntp -pl server \
+      '-Dtest=*SecurityTests,PdfViewerCompatibilityTests,PreviewUrlEscapingTests,OfficeSchemaCompatibilityTests' \
+      -DfailIfNoTests=true \
+      org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test
+
+FROM ubuntu:24.04@sha256:73b999393d07f2bf65a40373778a44dc9a6d54ad7718d29247d8ff9413c4d6a8 AS runtime
+ARG TARGETARCH
+RUN test "$TARGETARCH" = amd64 \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates curl fontconfig fonts-liberation fonts-noto-cjk \
+      libreoffice-nogui openjdk-21-jre-headless procps \
+    && fc-cache -f \
+    && mkdir -p /usr/share/kkfileview /var/cache/kkfileview \
+    && dpkg-query -W > /usr/share/kkfileview/system-packages.txt \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 kkfileview \
+    && useradd --uid 10001 --gid 10001 --home-dir /var/cache/kkfileview/home \
+      --no-create-home --shell /usr/sbin/nologin kkfileview \
+    && chown 10001:10001 /var/cache/kkfileview
+
+COPY --from=build /out/ /opt/kkfileview/
+COPY docker/txm/entrypoint.sh docker/txm/healthcheck.sh /usr/local/bin/
+COPY docker/txm/upstream.json /usr/share/kkfileview/upstream.json
+COPY LICENSE /usr/share/licenses/kkfileview/LICENSE
+RUN chmod 0555 /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh
+
+ARG VCS_REF=uncommitted
+LABEL org.opencontainers.image.source="https://github.com/Tranxmart/kkFileView" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.version="5.0.3" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      com.tranxmart.upstream.revision="3b82689a676e8a7e7d3ec4cc0c74de0676b0dac9"
+ENV KKFILEVIEW_BIN_FOLDER=/opt/kkfileview/bin \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+WORKDIR /opt/kkfileview
+USER 10001:10001
+EXPOSE 8012
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["/usr/local/bin/healthcheck.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
