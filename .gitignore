@@ -27,6 +27,7 @@ nbdist/
 .vscode/
 .DS_Store
 .artifacts/
+__pycache__/
 
 server/src/main/cache/
 server/src/main/file/

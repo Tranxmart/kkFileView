@@ -1,0 +1,34 @@
+# Copyright 2026 Tranxmart, Inc. All rights reserved.
+services:
+  viewer:
+    image: ${TXM_KK_IMAGE:-kkfileview:txm-local}
+    platform: linux/amd64
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+      - /var/cache/kkfileview:rw,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700
+    environment:
+      KK_TRUST_HOST: checks
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65
+    mem_limit: 2g
+    cpus: 2
+  checks:
+    image: kkfileview:txm-checks
+    build:
+      context: ../..
+      dockerfile: tests/txm/Dockerfile
+    platform: linux/amd64
+    init: true
+    shm_size: 1gb
+    environment:
+      CI: "true"
+      KK_BASE_URL: http://viewer:8012
+      FIXTURE_BASE_URL: http://checks:18080
+    volumes:
+      - ../../.artifacts/txm:/artifacts
+    depends_on:
+      viewer:
+        condition: service_healthy

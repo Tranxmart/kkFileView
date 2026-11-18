@@ -19,6 +19,8 @@ permissions:
 
 jobs:
   deploy-windows:
+    # The upstream Windows production environment is not this fork's deployment.
+    if: github.repository == 'kekingcn/kkFileView'
     runs-on: ubuntu-22.04
     env:
       KK_DEPLOY_HOST: ${{ secrets.KK_DEPLOY_HOST }}

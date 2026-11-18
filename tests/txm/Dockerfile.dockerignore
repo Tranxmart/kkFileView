@@ -1,0 +1,9 @@
+**
+!tests/
+!tests/e2e/
+!tests/e2e/package.json
+!tests/e2e/package-lock.json
+!tests/e2e/requirements.txt
+!tests/txm/
+!tests/txm/**
+**/__pycache__/
